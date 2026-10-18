@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Sistema de Reservas</title>
+  </head>
+  <body>
+    <main class="container">
+      <h1>Sistema de Reservas</h1>
+
+      <form id="reservation-form">
+        <label>Nome do cliente
+          <input type="text" name="customerName" required />
+        </label>
+
+        <label>Recurso
+          <select name="resource" required>
+            <option value="sala">Sala</option>
+            <option value="quadra">Quadra</option>
+            <option value="laboratorio">Laboratório</option>
+          </select>
+        </label>
+
+        <label>Data
+          <input type="date" name="date" required />
+        </label>
+
+        <label>Início
+          <input type="time" name="startTime" required />
+        </label>
+
+        <label>Fim
+          <input type="time" name="endTime" required />
+        </label>
+
+        <label>Observações (opcional)
+          <input type="text" name="notes" />
+        </label>
+
+        <button type="submit" class="btn">Reservar</button>
+      </form>
+
+      <p id="message" role="alert"></p>
+
+      <h2>Reservas</h2>
+      <ul id="reservation-list"></ul>
+    </main>
+
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
