@@ -11,3 +11,9 @@ input, select { padding: 0.5rem; border: 1px solid #ccc; border-radius: 6px; }
 .success { color: #15803d; }
 li { background: #fff; padding: 0.75rem; margin-bottom: 0.5rem; border-radius: 6px; list-style: none; }
 ul { padding: 0; }
+.filters { margin-bottom: 0.75rem; }
+.btn-secondary { background: #64748b; }
+.btn-secondary:hover { background: #475569; }
+.count { color: #475569; font-size: 0.9rem; }
+li.cancelada { opacity: 0.6; text-decoration: line-through; }
+li.empty { text-align: center; color: #64748b; }

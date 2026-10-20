@@ -2,6 +2,7 @@ import type {
   CreateResult,
   NewReservation,
   Reservation,
+  ReservationFilter,
 } from "../types/reservation";
 
 const reservations: Reservation[] = [];
@@ -49,9 +50,24 @@ export function listReservations(): Reservation[] {
   return [...reservations]; // cópia, para ninguém alterar o array original por fora
 }
 
+// Devolve só as reservas que atendem a TODOS os critérios do filtro
+export function filterReservations(filter: ReservationFilter): Reservation[] {
+  const search = filter.search.trim().toLowerCase();
+
+  return reservations.filter(
+    (r) =>
+      (search === "" || r.customerName.toLowerCase().includes(search)) &&
+      (filter.resource === "todos" || r.resource === filter.resource) &&
+      (filter.status === "todos" || r.status === filter.status) &&
+      (filter.date === undefined || r.date === filter.date)
+  );
+}
+
 export function cancelReservation(id: number): boolean {
   const found = reservations.find((r) => r.id === id);
   if (found === undefined) return false; // narrowing: depois disso, found é Reservation
   found.status = "cancelada";
   return true;
 }
+
+

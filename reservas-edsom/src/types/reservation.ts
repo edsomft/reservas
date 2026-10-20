@@ -20,3 +20,14 @@ export type NewReservation = Omit<Reservation, "id" | "status">;
 export type CreateResult =
   | { ok: true; reservation: Reservation }
   | { ok: false; error: string };
+
+// Tipo genérico: o valor do filtro é um valor real OU "todos" (sem filtrar)
+export type FilterValue<T> = T | "todos";
+
+// Critérios da consulta. "date" é opcional: sem data, não filtra por data.
+export interface ReservationFilter {
+  search: string; // texto digitado para buscar pelo nome do cliente
+  resource: FilterValue<ResourceType>;
+  status: FilterValue<ReservationStatus>;
+  date?: string;
+}
