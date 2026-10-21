@@ -1,5 +1,9 @@
 import "./style.css";
-import type { Reservation, ReservationFilter } from "./types/reservation";
+import type {
+  NewReservation,
+  Reservation,
+  ReservationFilter,
+} from "./types/reservation";
 import { ApiError, ReservationApi } from "./services/ReservationApi";
 import {
   ReservationService,
@@ -13,6 +17,10 @@ const service = new ReservationService(new ReservationApi());
 // assim não fazemos uma requisição a cada tecla digitada.
 let allReservations: Reservation[] = [];
 
+// Estado da tela. "null" significa "nenhuma".
+let selectedId: number | null = null; // reserva selecionada na lista
+let editingId: number | null = null; // reserva sendo editada no formulário
+
 // Busca um elemento e garante que ele existe (narrowing de null)
 function getElement<T extends HTMLElement>(selector: string): T {
   const element = document.querySelector<T>(selector);
@@ -23,11 +31,19 @@ function getElement<T extends HTMLElement>(selector: string): T {
 }
 
 const form = getElement<HTMLFormElement>("#reservation-form");
+const formTitle = getElement<HTMLHeadingElement>("#form-title");
 const submitButton = getElement<HTMLButtonElement>(
   '#reservation-form button[type="submit"]'
 );
+const cancelEditButton = getElement<HTMLButtonElement>("#cancel-edit");
 const message = getElement<HTMLParagraphElement>("#message");
 const list = getElement<HTMLUListElement>("#reservation-list");
+
+const panel = getElement<HTMLDivElement>("#selection-panel");
+const panelInfo = getElement<HTMLParagraphElement>("#selection-info");
+const editButton = getElement<HTMLButtonElement>("#edit-selected");
+const cancelSelectedButton = getElement<HTMLButtonElement>("#cancel-selected");
+const deleteSelectedButton = getElement<HTMLButtonElement>("#delete-selected");
 
 const filterForm = getElement<HTMLFormElement>("#filter-form");
 const filterSearch = getElement<HTMLInputElement>("#filter-search");
@@ -51,6 +67,15 @@ function getErrorMessage(error: unknown): string {
   return "Ocorreu um erro inesperado.";
 }
 
+// Texto de uma reserva, usado na lista e no painel de seleção
+function describe(r: Reservation): string {
+  let text = `${r.resource} | ${r.customerName} | ${r.date} ${r.startTime}-${r.endTime} | ${r.status}`;
+  if (r.notes !== undefined) {
+    text += ` | ${r.notes}`; // propriedade opcional tratada
+  }
+  return text;
+}
+
 // Lê os campos de filtro e monta um objeto tipado.
 // O .value de um <select> é sempre string, então usamos narrowing para
 // provar ao TypeScript que é "todos" ou um valor válido.
@@ -72,9 +97,39 @@ function readFilter(): ReservationFilter {
   };
 }
 
+// ---------- Seleção ----------
+
+// Clicar na reserva selecionada de novo desfaz a seleção
+function selectReservation(id: number): void {
+  selectedId = selectedId === id ? null : id;
+  draw();
+}
+
+// Mostra ou esconde o painel de ações conforme a reserva selecionada
+function updatePanel(): void {
+  const selected = allReservations.find((r) => r.id === selectedId);
+
+  if (selected === undefined) {
+    selectedId = null; // a reserva foi excluída (ou nada está selecionado)
+    panel.hidden = true;
+    return;
+  }
+
+  panel.hidden = false;
+  panelInfo.textContent = `Selecionada: ${describe(selected)}`;
+
+  // Reserva cancelada não pode ser editada nem cancelada de novo
+  const isActive = selected.status === "ativa";
+  editButton.hidden = !isActive;
+  cancelSelectedButton.hidden = !isActive;
+}
+
+// ---------- Desenho da lista ----------
+
 // Só desenha na tela (síncrona): usa a cópia local + filtros atuais
 function draw(): void {
   list.replaceChildren(); // limpa a lista
+  updatePanel();
 
   const results = filterReservations(allReservations, readFilter());
 
@@ -94,38 +149,23 @@ function draw(): void {
   for (const r of results) {
     const item = document.createElement("li");
     item.className = r.status; // "ativa" ou "cancelada" (usado no CSS)
-    item.textContent = `${r.resource} | ${r.customerName} | ${r.date} ${r.startTime}-${r.endTime} | ${r.status}`;
-
-    if (r.notes !== undefined) {
-      item.textContent += ` | ${r.notes}`; // propriedade opcional tratada
+    if (r.id === selectedId) {
+      item.classList.add("selected");
     }
+    item.tabIndex = 0; // permite chegar nele com a tecla Tab
+    item.textContent = describe(r);
 
-    if (r.status === "ativa") {
-      const cancelButton = document.createElement("button");
-      cancelButton.type = "button";
-      cancelButton.className = "btn btn-warning";
-      cancelButton.textContent = "Cancelar";
-      cancelButton.addEventListener("click", () => {
-        void handleCancel(r.id);
-      });
-      item.append(cancelButton);
-    }
-
-    const deleteButton = document.createElement("button");
-    deleteButton.type = "button";
-    deleteButton.className = "btn btn-danger";
-    deleteButton.textContent = "Excluir";
-    deleteButton.addEventListener("click", () => {
-      void handleDelete(r.id);
+    item.addEventListener("click", () => selectReservation(r.id));
+    item.addEventListener("keydown", (event: KeyboardEvent) => {
+      if (event.key === "Enter") selectReservation(r.id);
     });
-    item.append(deleteButton);
 
     list.append(item);
   }
 }
 
 // Busca os dados no servidor e redesenha. Chamada na abertura da página
-// e depois de cada alteração (criar, cancelar, excluir).
+// e depois de cada alteração (criar, editar, cancelar, excluir).
 async function loadReservations(): Promise<void> {
   resultCount.textContent = "Carregando reservas...";
 
@@ -138,9 +178,50 @@ async function loadReservations(): Promise<void> {
   }
 }
 
+// ---------- Modo de edição ----------
+
+// Preenche um campo do formulário pelo atributo name.
+// namedItem devolve Element | RadioNodeList | null, então o instanceof
+// garante que é um input ou select antes de usar .value.
+function setField(name: string, value: string): void {
+  const field = form.elements.namedItem(name);
+  if (field instanceof HTMLInputElement || field instanceof HTMLSelectElement) {
+    field.value = value;
+  }
+}
+
+function startEditing(r: Reservation): void {
+  editingId = r.id;
+
+  setField("customerName", r.customerName);
+  setField("resource", r.resource);
+  setField("date", r.date);
+  setField("startTime", r.startTime);
+  setField("endTime", r.endTime);
+  setField("notes", r.notes ?? ""); // sem observação: campo vazio
+
+  formTitle.textContent = `Editando reserva #${r.id}`;
+  submitButton.textContent = "Salvar alterações";
+  cancelEditButton.hidden = false;
+  message.textContent = "";
+
+  form.scrollIntoView({ behavior: "smooth" }); // leva o usuário até o formulário
+}
+
+function stopEditing(): void {
+  editingId = null;
+  form.reset();
+  formTitle.textContent = "Nova reserva";
+  submitButton.textContent = "Reservar";
+  cancelEditButton.hidden = true;
+}
+
+// ---------- Ações ----------
+
 async function handleCancel(id: number): Promise<void> {
   try {
     await service.cancel(id);
+    if (editingId === id) stopEditing(); // não dá para editar uma reserva cancelada
     showMessage("Reserva cancelada.", "success");
     await loadReservations();
   } catch (error) {
@@ -153,12 +234,33 @@ async function handleDelete(id: number): Promise<void> {
 
   try {
     await service.remove(id);
+    if (editingId === id) stopEditing();
     showMessage("Reserva excluída.", "success");
     await loadReservations();
   } catch (error) {
     showMessage(getErrorMessage(error), "error");
   }
 }
+
+// ---------- Eventos ----------
+
+editButton.addEventListener("click", () => {
+  const selected = allReservations.find((r) => r.id === selectedId);
+  if (selected !== undefined) startEditing(selected);
+});
+
+cancelSelectedButton.addEventListener("click", () => {
+  if (selectedId !== null) void handleCancel(selectedId);
+});
+
+deleteSelectedButton.addEventListener("click", () => {
+  if (selectedId !== null) void handleDelete(selectedId);
+});
+
+cancelEditButton.addEventListener("click", () => {
+  stopEditing();
+  message.textContent = "";
+});
 
 form.addEventListener("submit", async (event: SubmitEvent) => {
   event.preventDefault(); // impede a página de recarregar
@@ -173,25 +275,39 @@ form.addEventListener("submit", async (event: SubmitEvent) => {
 
   const notes = String(data.get("notes") ?? "").trim();
 
+  const reservationData: NewReservation = {
+    customerName: String(data.get("customerName")).trim(),
+    resource, // aqui já é ResourceType, graças ao type guard
+    date: String(data.get("date")),
+    startTime: String(data.get("startTime")),
+    endTime: String(data.get("endTime")),
+    notes: notes === "" ? undefined : notes,
+  };
+
+  // Copia o id para uma constante: durante o await, editingId poderia mudar
+  const currentEditingId = editingId;
+
   submitButton.disabled = true; // evita enviar duas vezes enquanto aguarda o servidor
 
   try {
-    const result = await service.create({
-      customerName: String(data.get("customerName")).trim(),
-      resource, // aqui já é ResourceType, graças ao type guard
-      date: String(data.get("date")),
-      startTime: String(data.get("startTime")),
-      endTime: String(data.get("endTime")),
-      notes: notes === "" ? undefined : notes,
-    });
+    // Mesmo formulário para os dois casos: sem id cria (POST), com id edita (PUT)
+    const result =
+      currentEditingId === null
+        ? await service.create(reservationData)
+        : await service.update(currentEditingId, reservationData);
 
     if (!result.ok) {
       showMessage(result.error, "error"); // TypeScript sabe que .error existe aqui
       return;
     }
 
-    showMessage("Reserva criada com sucesso!", "success");
-    form.reset();
+    showMessage(
+      currentEditingId === null
+        ? "Reserva criada com sucesso!"
+        : "Reserva atualizada com sucesso!",
+      "success"
+    );
+    stopEditing();
     await loadReservations();
   } catch (error) {
     showMessage(getErrorMessage(error), "error");

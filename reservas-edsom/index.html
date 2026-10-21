@@ -10,6 +10,8 @@
     <main class="container">
       <h1>Sistema de Reservas</h1>
 
+      <h2 id="form-title">Nova reserva</h2>
+
       <form id="reservation-form">
         <label>Nome do cliente
           <input type="text" name="customerName" required />
@@ -40,6 +42,8 @@
         </label>
 
         <button type="submit" class="btn">Reservar</button>
+        <button type="submit" class="btn">Reservar</button>
+        <button type="button" id="cancel-edit" class="btn btn-secondary" hidden>Cancelar edição</button>
       </form>
 
       <p id="message" role="alert"></p>
@@ -76,6 +80,14 @@
       </form>
 
       <p id="result-count" class="count"></p>
+        <div id="selection-panel" class="panel" hidden>
+          <p id="selection-info"></p>
+          <div class="panel-actions">
+            <button type="button" id="edit-selected" class="btn">Editar</button>
+            <button type="button" id="cancel-selected" class="btn btn-warning">Cancelar reserva</button>
+            <button type="button" id="delete-selected" class="btn btn-danger">Excluir</button>
+        </div>
+      </div>
       <ul id="reservation-list"></ul>
     </main>
 

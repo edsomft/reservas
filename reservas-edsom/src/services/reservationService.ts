@@ -3,6 +3,7 @@ import type {
   NewReservation,
   Reservation,
   ReservationFilter,
+  UpdateResult,
 } from "../types/reservation";
 import type { ReservationApi } from "./ReservationApi";
 
@@ -61,32 +62,57 @@ export class ReservationService {
     return this.api.getAll();
   }
 
-  // Erros de validação (esperados) voltam em CreateResult.
-  // Erros de comunicação (ApiError) são lançados e tratados por quem chamou.
-  async create(data: NewReservation): Promise<CreateResult> {
+  private async validate(
+    data: NewReservation,
+    ignoreId?: number
+  ): Promise<string | null> {
     if (data.customerName === "") {
-      return { ok: false, error: "Informe o nome do cliente." };
+      return "Informe o nome do cliente.";
     }
     if (toMinutes(data.endTime) <= toMinutes(data.startTime)) {
-      return { ok: false, error: "O horário final deve ser depois do inicial." };
+      return "O horário final deve ser depois do inicial.";
     }
 
-    // Busca no servidor só as reservas ativas do mesmo recurso e data
-    // e a regra de conflito continua sendo calculada aqui, em TypeScript.
     const sameDay = await this.api.getAll({
       resource: data.resource,
       date: data.date,
       status: "ativa",
     });
 
-    if (hasConflict(data, sameDay)) {
-      return {
-        ok: false,
-        error: "Conflito: este recurso já está reservado nesse horário.",
-      };
+    if (hasConflict(data, sameDay, ignoreId)) {
+      return "Conflito: este recurso já está reservado nesse horário.";
+    }
+
+    return null;
+  }
+
+  async create(data: NewReservation): Promise<CreateResult> {
+    const error = await this.validate(data);
+    if (error !== null) {
+      return { ok: false, error };
     }
 
     const reservation = await this.api.create({ ...data, status: "ativa" });
+    return { ok: true, reservation };
+  }
+
+  // Edição (PUT): substitui o registro, mantendo o status que ele já tinha
+  async update(id: number, data: NewReservation): Promise<UpdateResult> {
+    const current = await this.api.getById(id);
+
+    if (current.status === "cancelada") {
+      return { ok: false, error: "Reservas canceladas não podem ser editadas." };
+    }
+
+    const error = await this.validate(data, id);
+    if (error !== null) {
+      return { ok: false, error };
+    }
+
+    const reservation = await this.api.update(id, {
+      ...data,
+      status: current.status,
+    });
     return { ok: true, reservation };
   }
 

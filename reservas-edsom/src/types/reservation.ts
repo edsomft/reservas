@@ -1,6 +1,7 @@
 // Union types: só estes valores são permitidos
 export type ResourceType = "sala" | "quadra" | "laboratorio";
 export type ReservationStatus = "ativa" | "cancelada";
+export type UpdateResult = CreateResult;
 
 export interface Reservation {
   id: number;
