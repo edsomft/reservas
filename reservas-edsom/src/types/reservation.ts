@@ -16,6 +16,9 @@ export interface Reservation {
 // O que o usuário envia ao criar (id e status são gerados pelo sistema)
 export type NewReservation = Omit<Reservation, "id" | "status">;
 
+// O que é enviado ao servidor (JSON Server): tudo, menos o id, que ele gera
+export type ReservationPayload = Omit<Reservation, "id">;
+
 // Resultado de criar: ou deu certo, ou deu erro com mensagem
 export type CreateResult =
   | { ok: true; reservation: Reservation }

@@ -7,7 +7,9 @@
 
 1. > "Você é um desenvolvedor web com muita experiência e conhece boas práticas de programação. Quero compreender a fundo o que a atividade anexada propõe, para traçar um plano bem descrito para cada item solicitado.
 
-2. > ""
+2. > "Levando em consideração o estado atual do projeto, seguindo informes passado, verifique, tomando como base o que foi solicitado na atividade, quais etapas estão pendentes de serem concluídas."
+
+3. >"Elabore um cronograma de etapas de entregas baseando-se nas pendências do projeto, divida o que falta em no mínimo 5 etapas para que sejam atingidas"
 
 ## (c) Considerações sobre o uso de IA no dia a dia do desenvolvimento
 
