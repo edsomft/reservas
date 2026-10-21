@@ -39,7 +39,7 @@ Os dados ficam no arquivo `db.json`. Para testar a API direto no navegador: `htt
 │   ├── types/reservation.ts     # interfaces e types (modelagem)
 │   ├── services/
 │   │   ├── ReservationApi.ts    # classe HTTP (fetch: GET, POST, PUT, PATCH, DELETE)
-│   │   └── reservationService.ts  # regras de negócio
+│   │   └── reservationService.ts  # classe ReservationService (regras de negócio)
 │   ├── utils/guards.ts          # type guards (narrowing)
 │   ├── main.ts                  # DOM e eventos
 │   └── style.css
@@ -69,4 +69,5 @@ Os dados ficam no arquivo `db.json`. Para testar a API direto no navegador: `htt
 
 - Checkpoint 1: estrutura inicial, tipos, regras de criação/cancelamento com verificação de conflito e interface básica.
 - Filtros e busca de reservas.
-- Requisito surpresa, etapa 1: JSON Server, `db.json` e classe `ReservationApi` (a interface ainda será integrada à API nas próximas etapas).
+- Requisito surpresa, etapa 1: JSON Server, `db.json` e classe `ReservationApi`.
+- Requisito surpresa, etapa 2: criar, listar, cancelar e excluir reservas via API (`ReservationService` + `async/await` + tratamento de erros).

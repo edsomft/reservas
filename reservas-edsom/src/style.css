@@ -17,3 +17,6 @@ ul { padding: 0; }
 .count { color: #475569; font-size: 0.9rem; }
 li.cancelada { opacity: 0.6; text-decoration: line-through; }
 li.empty { text-align: center; color: #64748b; }
+.btn-warning { background: #d97706; margin-left: 0.5rem; }
+.btn-warning:hover { background: #b45309; }
+.btn:disabled { opacity: 0.6; cursor: not-allowed; }

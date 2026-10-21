@@ -1,11 +1,17 @@
 import "./style.css";
-import type { ReservationFilter } from "./types/reservation";
+import type { Reservation, ReservationFilter } from "./types/reservation";
+import { ApiError, ReservationApi } from "./services/ReservationApi";
 import {
-  cancelReservation,
-  createReservation,
+  ReservationService,
   filterReservations,
 } from "./services/reservationService";
 import { isReservationStatus, isResourceType } from "./utils/guards";
+
+const service = new ReservationService(new ReservationApi());
+
+// Cópia local das reservas vindas do servidor. Os filtros trabalham em cima dela,
+// assim não fazemos uma requisição a cada tecla digitada.
+let allReservations: Reservation[] = [];
 
 // Busca um elemento e garante que ele existe (narrowing de null)
 function getElement<T extends HTMLElement>(selector: string): T {
@@ -17,6 +23,9 @@ function getElement<T extends HTMLElement>(selector: string): T {
 }
 
 const form = getElement<HTMLFormElement>("#reservation-form");
+const submitButton = getElement<HTMLButtonElement>(
+  '#reservation-form button[type="submit"]'
+);
 const message = getElement<HTMLParagraphElement>("#message");
 const list = getElement<HTMLUListElement>("#reservation-list");
 
@@ -31,6 +40,15 @@ const resultCount = getElement<HTMLParagraphElement>("#result-count");
 function showMessage(text: string, type: "error" | "success"): void {
   message.textContent = text;
   message.className = type;
+}
+
+// O "catch" recebe "unknown". instanceof faz o narrowing:
+// se for ApiError, a mensagem é a que escrevemos; senão, uma genérica.
+function getErrorMessage(error: unknown): string {
+  if (error instanceof ApiError) {
+    return error.message;
+  }
+  return "Ocorreu um erro inesperado.";
 }
 
 // Lê os campos de filtro e monta um objeto tipado.
@@ -54,10 +72,11 @@ function readFilter(): ReservationFilter {
   };
 }
 
-function render(): void {
+// Só desenha na tela (síncrona): usa a cópia local + filtros atuais
+function draw(): void {
   list.replaceChildren(); // limpa a lista
 
-  const results = filterReservations(readFilter());
+  const results = filterReservations(allReservations, readFilter());
 
   resultCount.textContent =
     results.length === 1
@@ -82,22 +101,66 @@ function render(): void {
     }
 
     if (r.status === "ativa") {
-      const button = document.createElement("button");
-      button.type = "button";
-      button.className = "btn btn-danger";
-      button.textContent = "Cancelar";
-      button.addEventListener("click", () => {
-        cancelReservation(r.id);
-        render();
+      const cancelButton = document.createElement("button");
+      cancelButton.type = "button";
+      cancelButton.className = "btn btn-warning";
+      cancelButton.textContent = "Cancelar";
+      cancelButton.addEventListener("click", () => {
+        void handleCancel(r.id);
       });
-      item.append(button);
+      item.append(cancelButton);
     }
+
+    const deleteButton = document.createElement("button");
+    deleteButton.type = "button";
+    deleteButton.className = "btn btn-danger";
+    deleteButton.textContent = "Excluir";
+    deleteButton.addEventListener("click", () => {
+      void handleDelete(r.id);
+    });
+    item.append(deleteButton);
 
     list.append(item);
   }
 }
 
-form.addEventListener("submit", (event: SubmitEvent) => {
+// Busca os dados no servidor e redesenha. Chamada na abertura da página
+// e depois de cada alteração (criar, cancelar, excluir).
+async function loadReservations(): Promise<void> {
+  resultCount.textContent = "Carregando reservas...";
+
+  try {
+    allReservations = await service.list();
+    draw();
+  } catch (error) {
+    resultCount.textContent = "";
+    showMessage(getErrorMessage(error), "error");
+  }
+}
+
+async function handleCancel(id: number): Promise<void> {
+  try {
+    await service.cancel(id);
+    showMessage("Reserva cancelada.", "success");
+    await loadReservations();
+  } catch (error) {
+    showMessage(getErrorMessage(error), "error");
+  }
+}
+
+async function handleDelete(id: number): Promise<void> {
+  if (!confirm("Excluir esta reserva definitivamente?")) return;
+
+  try {
+    await service.remove(id);
+    showMessage("Reserva excluída.", "success");
+    await loadReservations();
+  } catch (error) {
+    showMessage(getErrorMessage(error), "error");
+  }
+}
+
+form.addEventListener("submit", async (event: SubmitEvent) => {
   event.preventDefault(); // impede a página de recarregar
 
   const data = new FormData(form);
@@ -110,34 +173,42 @@ form.addEventListener("submit", (event: SubmitEvent) => {
 
   const notes = String(data.get("notes") ?? "").trim();
 
-  const result = createReservation({
-    customerName: String(data.get("customerName")).trim(),
-    resource, // aqui já é ResourceType, graças ao type guard
-    date: String(data.get("date")),
-    startTime: String(data.get("startTime")),
-    endTime: String(data.get("endTime")),
-    notes: notes === "" ? undefined : notes,
-  });
+  submitButton.disabled = true; // evita enviar duas vezes enquanto aguarda o servidor
 
-  if (!result.ok) {
-    showMessage(result.error, "error"); // TypeScript sabe que .error existe aqui
-    return;
+  try {
+    const result = await service.create({
+      customerName: String(data.get("customerName")).trim(),
+      resource, // aqui já é ResourceType, graças ao type guard
+      date: String(data.get("date")),
+      startTime: String(data.get("startTime")),
+      endTime: String(data.get("endTime")),
+      notes: notes === "" ? undefined : notes,
+    });
+
+    if (!result.ok) {
+      showMessage(result.error, "error"); // TypeScript sabe que .error existe aqui
+      return;
+    }
+
+    showMessage("Reserva criada com sucesso!", "success");
+    form.reset();
+    await loadReservations();
+  } catch (error) {
+    showMessage(getErrorMessage(error), "error");
+  } finally {
+    submitButton.disabled = false; // roda sempre, com sucesso ou erro
   }
-
-  showMessage("Reserva criada com sucesso!", "success");
-  form.reset();
-  render();
 });
 
 // "input" dispara a cada digitação (texto) e a cada mudança (select/data),
 // e como o evento "borbulha" até o <form>, um único listener cobre todos os filtros.
 filterForm.addEventListener("input", () => {
-  render(); // a leitura dos valores é feita direto nos campos, em readFilter()
+  draw(); // só redesenha a cópia local, sem ir ao servidor
 });
 
 clearButton.addEventListener("click", () => {
   filterForm.reset();
-  render();
+  draw();
 });
 
-render();
+void loadReservations();
