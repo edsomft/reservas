@@ -10,19 +10,15 @@
     <main class="container">
       <h1>Sistema de Reservas</h1>
 
-      <h2 id="form-title">Nova reserva</h2>
+      <h2>Nova reserva</h2>
 
       <form id="reservation-form">
         <label>Nome do cliente
           <input type="text" name="customerName" required />
         </label>
 
-        <label>Recurso
-          <select name="resource" required>
-            <option value="sala">Sala</option>
-            <option value="quadra">Quadra</option>
-            <option value="laboratorio">Laboratório</option>
-          </select>
+        <label>Local
+          <select name="resource" required></select>
         </label>
 
         <label>Data
@@ -42,21 +38,15 @@
         </label>
 
         <button type="submit" class="btn">Reservar</button>
-
-        <button type="button" id="cancel-edit" class="btn btn-secondary" hidden>Cancelar edição</button>
       </form>
 
       <p id="message" role="alert"></p>
 
-            <h2>Horários disponíveis</h2>
+      <h2>Horários disponíveis</h2>
 
       <form id="availability-form" class="filters">
-        <label>Recurso
-          <select id="availability-resource">
-            <option value="sala">Sala</option>
-            <option value="quadra">Quadra</option>
-            <option value="laboratorio">Laboratório</option>
-          </select>
+        <label>Local
+          <select id="availability-resource"></select>
         </label>
 
         <label>Data
@@ -76,12 +66,9 @@
           <input type="search" id="filter-search" placeholder="Ex.: Maria" />
         </label>
 
-        <label>Recurso
+        <label>Local
           <select id="filter-resource">
             <option value="todos">Todos</option>
-            <option value="sala">Sala</option>
-            <option value="quadra">Quadra</option>
-            <option value="laboratorio">Laboratório</option>
           </select>
         </label>
 
@@ -101,37 +88,72 @@
       </form>
 
       <p id="result-count" class="count"></p>
-          <div id="selection-panel" class="panel" hidden>
-            <p id="selection-info"></p>
 
-            <div class="panel-actions">
-              <button type="button" id="edit-selected" class="btn">Editar</button>
-              <button type="button" id="reschedule-selected" class="btn">Reagendar</button>
-              <button type="button" id="cancel-selected" class="btn btn-warning">Cancelar reserva</button>
-              <button type="button" id="delete-selected" class="btn btn-danger">Excluir</button>
-            </div>
-
-            <form id="reschedule-form" class="reschedule" hidden>
-              <label>Nova data
-                <input type="date" name="date" required />
-              </label>
-
-              <label>Novo início
-                <input type="time" name="startTime" required />
-              </label>
-
-              <label>Novo fim
-                <input type="time" name="endTime" required />
-              </label>
-
-              <div class="panel-actions">
-                <button type="submit" class="btn">Confirmar reagendamento</button>
-                <button type="button" id="cancel-reschedule" class="btn btn-secondary">Voltar</button>
-              </div>
-            </form>
-          </div>
       <ul id="reservation-list"></ul>
     </main>
+
+    <!-- Modelo do menu que aparece dentro da reserva selecionada.
+         O conteúdo do <template> não é exibido: o main.ts clona uma cópia. -->
+    <template id="item-menu-template">
+      <div class="item-menu">
+        <div class="panel-actions" data-role="actions">
+          <button type="button" class="btn" data-action="edit">Editar</button>
+          <button type="button" class="btn" data-action="reschedule">Reagendar</button>
+          <button type="button" class="btn btn-warning" data-action="cancel">Cancelar reserva</button>
+          <button type="button" class="btn btn-danger" data-action="delete">Excluir</button>
+        </div>
+
+        <form class="inline-form" data-form="edit" hidden>
+          <label>Nome do cliente
+            <input type="text" name="customerName" required />
+          </label>
+
+          <label>Local
+            <select name="resource" required></select>
+          </label>
+
+          <label>Data
+            <input type="date" name="date" required />
+          </label>
+
+          <label>Início
+            <input type="time" name="startTime" required />
+          </label>
+
+          <label>Fim
+            <input type="time" name="endTime" required />
+          </label>
+
+          <label>Observações (opcional)
+            <input type="text" name="notes" />
+          </label>
+
+          <div class="panel-actions">
+            <button type="submit" class="btn">Salvar alterações</button>
+            <button type="button" class="btn btn-secondary" data-action="back">Voltar</button>
+          </div>
+        </form>
+
+        <form class="inline-form" data-form="reschedule" hidden>
+          <label>Nova data
+            <input type="date" name="date" required />
+          </label>
+
+          <label>Novo início
+            <input type="time" name="startTime" required />
+          </label>
+
+          <label>Novo fim
+            <input type="time" name="endTime" required />
+          </label>
+
+          <div class="panel-actions">
+            <button type="submit" class="btn">Confirmar reagendamento</button>
+            <button type="button" class="btn btn-secondary" data-action="back">Voltar</button>
+          </div>
+        </form>
+      </div>
+    </template>
 
     <script type="module" src="/src/main.ts"></script>
   </body>

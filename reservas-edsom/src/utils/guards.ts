@@ -1,17 +1,18 @@
+import { RESOURCE_LABELS } from "../types/reservation";
 import type {
   Reservation,
   ReservationStatus,
   ResourceType,
 } from "../types/reservation";
 
-const VALID_RESOURCES: ResourceType[] = ["sala", "quadra", "laboratorio"];
 const VALID_STATUSES: ReservationStatus[] = ["ativa", "cancelada"];
 
 // "value is ResourceType" é o type predicate
 export function isResourceType(value: string): value is ResourceType {
-  return (VALID_RESOURCES as string[]).includes(value);
+  // Os locais válidos são as chaves de RESOURCE_LABELS (uma única fonte da verdade).
+  // Object.hasOwn evita que "toString" e similares passem como válidos.
+  return Object.hasOwn(RESOURCE_LABELS, value);
 }
-
 export function isReservationStatus(value: string): value is ReservationStatus {
   return (VALID_STATUSES as string[]).includes(value);
 }

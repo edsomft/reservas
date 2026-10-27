@@ -1,5 +1,29 @@
 // Union types: só estes valores são permitidos
-export type ResourceType = "sala" | "quadra" | "laboratorio";
+export type ResourceType =
+  | "sala-1"
+  | "sala-2"
+  | "sala-3"
+  | "quadra-1"
+  | "quadra-2"
+  | "quadra-3"
+  | "laboratorio-1"
+  | "laboratorio-2"
+  | "laboratorio-3";
+
+// Nome exibido de cada local. Record<ResourceType, string> OBRIGA a ter uma entrada
+// para cada valor do union: se um local for adicionado ao tipo e esquecido aqui,
+// o TypeScript acusa erro.
+export const RESOURCE_LABELS: Record<ResourceType, string> = {
+  "sala-1": "Sala 1",
+  "sala-2": "Sala 2",
+  "sala-3": "Sala 3",
+  "quadra-1": "Quadra 1",
+  "quadra-2": "Quadra 2",
+  "quadra-3": "Quadra 3",
+  "laboratorio-1": "Laboratório 1",
+  "laboratorio-2": "Laboratório 2",
+  "laboratorio-3": "Laboratório 3",
+};
 export type ReservationStatus = "ativa" | "cancelada";
 export type UpdateResult = CreateResult;
 

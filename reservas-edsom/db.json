@@ -3,37 +3,37 @@
     {
       "id": 1,
       "customerName": "Maria Silva",
-      "resource": "sala",
-      "date": "2026-10-23",
+      "resource": "sala-1",
+      "date": "2026-10-29",
       "startTime": "14:00",
       "endTime": "15:00",
       "status": "ativa",
       "notes": "Reunião de planejamento"
     },
     {
+      "id": 2,
       "customerName": "João Souza",
-      "resource": "quadra",
-      "date": "2026-10-24",
-      "startTime": "16:45",
-      "endTime": "16:48",
-      "status": "ativa",
-      "id": 2
+      "resource": "quadra-2",
+      "date": "2026-10-29",
+      "startTime": "09:00",
+      "endTime": "10:30",
+      "status": "ativa"
     },
     {
-      "customerName": "Teste reserva",
-      "resource": "sala",
-      "date": "2026-10-24",
-      "startTime": "16:45",
-      "endTime": "16:47",
-      "status": "ativa",
-      "id": 3
+      "id": 3,
+      "customerName": "Ana Lima",
+      "resource": "sala-1",
+      "date": "2026-10-29",
+      "startTime": "09:00",
+      "endTime": "10:00",
+      "status": "ativa"
     },
     {
-      "customerName": "tessssstteee",
-      "resource": "sala",
-      "date": "2026-10-24",
-      "startTime": "18:45",
-      "endTime": "20:54",
+      "customerName": "Reserva teste",
+      "resource": "laboratorio-1",
+      "date": "2026-10-08",
+      "startTime": "16:13",
+      "endTime": "17:13",
       "status": "ativa",
       "id": 4
     }
