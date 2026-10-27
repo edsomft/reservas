@@ -42,11 +42,32 @@
         </label>
 
         <button type="submit" class="btn">Reservar</button>
-        <button type="submit" class="btn">Reservar</button>
+
         <button type="button" id="cancel-edit" class="btn btn-secondary" hidden>Cancelar edição</button>
       </form>
 
       <p id="message" role="alert"></p>
+
+            <h2>Horários disponíveis</h2>
+
+      <form id="availability-form" class="filters">
+        <label>Recurso
+          <select id="availability-resource">
+            <option value="sala">Sala</option>
+            <option value="quadra">Quadra</option>
+            <option value="laboratorio">Laboratório</option>
+          </select>
+        </label>
+
+        <label>Data
+          <input type="date" id="availability-date" required />
+        </label>
+
+        <button type="submit" class="btn">Consultar</button>
+      </form>
+
+      <p id="availability-hint" class="count"></p>
+      <ul id="availability-list"></ul>
 
       <h2>Reservas</h2>
 
@@ -80,14 +101,35 @@
       </form>
 
       <p id="result-count" class="count"></p>
-        <div id="selection-panel" class="panel" hidden>
-          <p id="selection-info"></p>
-          <div class="panel-actions">
-            <button type="button" id="edit-selected" class="btn">Editar</button>
-            <button type="button" id="cancel-selected" class="btn btn-warning">Cancelar reserva</button>
-            <button type="button" id="delete-selected" class="btn btn-danger">Excluir</button>
-        </div>
-      </div>
+          <div id="selection-panel" class="panel" hidden>
+            <p id="selection-info"></p>
+
+            <div class="panel-actions">
+              <button type="button" id="edit-selected" class="btn">Editar</button>
+              <button type="button" id="reschedule-selected" class="btn">Reagendar</button>
+              <button type="button" id="cancel-selected" class="btn btn-warning">Cancelar reserva</button>
+              <button type="button" id="delete-selected" class="btn btn-danger">Excluir</button>
+            </div>
+
+            <form id="reschedule-form" class="reschedule" hidden>
+              <label>Nova data
+                <input type="date" name="date" required />
+              </label>
+
+              <label>Novo início
+                <input type="time" name="startTime" required />
+              </label>
+
+              <label>Novo fim
+                <input type="time" name="endTime" required />
+              </label>
+
+              <div class="panel-actions">
+                <button type="submit" class="btn">Confirmar reagendamento</button>
+                <button type="button" id="cancel-reschedule" class="btn btn-secondary">Voltar</button>
+              </div>
+            </form>
+          </div>
       <ul id="reservation-list"></ul>
     </main>
 

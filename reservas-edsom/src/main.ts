@@ -3,9 +3,13 @@ import type {
   NewReservation,
   Reservation,
   ReservationFilter,
+  ResourceType,
+  TimeSlot,
 } from "./types/reservation";
 import { ApiError, ReservationApi } from "./services/ReservationApi";
 import {
+  CLOSING_TIME,
+  OPENING_TIME,
   ReservationService,
   filterReservations,
 } from "./services/reservationService";
@@ -20,6 +24,10 @@ let allReservations: Reservation[] = [];
 // Estado da tela. "null" significa "nenhuma".
 let selectedId: number | null = null; // reserva selecionada na lista
 let editingId: number | null = null; // reserva sendo editada no formulário
+let reschedulingId: number | null = null; // reserva sendo reagendada no painel
+
+// Última consulta de horários livres (para atualizar a lista após mudanças)
+let lastAvailability: { resource: ResourceType; date: string } | null = null;
 
 // Busca um elemento e garante que ele existe (narrowing de null)
 function getElement<T extends HTMLElement>(selector: string): T {
@@ -42,8 +50,21 @@ const list = getElement<HTMLUListElement>("#reservation-list");
 const panel = getElement<HTMLDivElement>("#selection-panel");
 const panelInfo = getElement<HTMLParagraphElement>("#selection-info");
 const editButton = getElement<HTMLButtonElement>("#edit-selected");
+const rescheduleButton = getElement<HTMLButtonElement>("#reschedule-selected");
 const cancelSelectedButton = getElement<HTMLButtonElement>("#cancel-selected");
 const deleteSelectedButton = getElement<HTMLButtonElement>("#delete-selected");
+
+const rescheduleForm = getElement<HTMLFormElement>("#reschedule-form");
+const rescheduleSubmit = getElement<HTMLButtonElement>(
+  '#reschedule-form button[type="submit"]'
+);
+const cancelRescheduleButton = getElement<HTMLButtonElement>("#cancel-reschedule");
+
+const availabilityForm = getElement<HTMLFormElement>("#availability-form");
+const availabilityResource = getElement<HTMLSelectElement>("#availability-resource");
+const availabilityDate = getElement<HTMLInputElement>("#availability-date");
+const availabilityHint = getElement<HTMLParagraphElement>("#availability-hint");
+const availabilityList = getElement<HTMLUListElement>("#availability-list");
 
 const filterForm = getElement<HTMLFormElement>("#filter-form");
 const filterSearch = getElement<HTMLInputElement>("#filter-search");
@@ -52,6 +73,8 @@ const filterStatus = getElement<HTMLSelectElement>("#filter-status");
 const filterDate = getElement<HTMLInputElement>("#filter-date");
 const clearButton = getElement<HTMLButtonElement>("#clear-filters");
 const resultCount = getElement<HTMLParagraphElement>("#result-count");
+
+availabilityHint.textContent = `Funcionamento: ${OPENING_TIME} às ${CLOSING_TIME}`;
 
 function showMessage(text: string, type: "error" | "success"): void {
   message.textContent = text;
@@ -97,11 +120,26 @@ function readFilter(): ReservationFilter {
   };
 }
 
+// Preenche um campo de um formulário pelo atributo name (por padrão, o principal).
+// namedItem devolve Element | RadioNodeList | null, então o instanceof
+// garante que é um input ou select antes de usar .value.
+function setField(
+  name: string,
+  value: string,
+  target: HTMLFormElement = form
+): void {
+  const field = target.elements.namedItem(name);
+  if (field instanceof HTMLInputElement || field instanceof HTMLSelectElement) {
+    field.value = value;
+  }
+}
+
 // ---------- Seleção ----------
 
 // Clicar na reserva selecionada de novo desfaz a seleção
 function selectReservation(id: number): void {
   selectedId = selectedId === id ? null : id;
+  reschedulingId = null; // trocar de seleção fecha o reagendamento
   draw();
 }
 
@@ -111,17 +149,23 @@ function updatePanel(): void {
 
   if (selected === undefined) {
     selectedId = null; // a reserva foi excluída (ou nada está selecionado)
+    reschedulingId = null;
     panel.hidden = true;
+    rescheduleForm.hidden = true;
     return;
   }
 
   panel.hidden = false;
   panelInfo.textContent = `Selecionada: ${describe(selected)}`;
 
-  // Reserva cancelada não pode ser editada nem cancelada de novo
+  // Reserva cancelada não pode ser editada, reagendada nem cancelada de novo
   const isActive = selected.status === "ativa";
   editButton.hidden = !isActive;
+  rescheduleButton.hidden = !isActive;
   cancelSelectedButton.hidden = !isActive;
+
+  // O formulário de reagendamento só aparece para a reserva que está sendo reagendada
+  rescheduleForm.hidden = !(isActive && reschedulingId === selected.id);
 }
 
 // ---------- Desenho da lista ----------
@@ -165,30 +209,68 @@ function draw(): void {
 }
 
 // Busca os dados no servidor e redesenha. Chamada na abertura da página
-// e depois de cada alteração (criar, editar, cancelar, excluir).
+// e depois de cada alteração (criar, editar, reagendar, cancelar, excluir).
 async function loadReservations(): Promise<void> {
   resultCount.textContent = "Carregando reservas...";
 
   try {
     allReservations = await service.list();
     draw();
+    await refreshAvailability(); // mantém os horários livres atualizados
   } catch (error) {
     resultCount.textContent = "";
     showMessage(getErrorMessage(error), "error");
   }
 }
 
-// ---------- Modo de edição ----------
+// ---------- Horários disponíveis ----------
 
-// Preenche um campo do formulário pelo atributo name.
-// namedItem devolve Element | RadioNodeList | null, então o instanceof
-// garante que é um input ou select antes de usar .value.
-function setField(name: string, value: string): void {
-  const field = form.elements.namedItem(name);
-  if (field instanceof HTMLInputElement || field instanceof HTMLSelectElement) {
-    field.value = value;
+// Clicar numa janela livre leva o horário para o formulário de nova reserva
+function useSlot(resource: ResourceType, date: string, slot: TimeSlot): void {
+  stopEditing(); // garante que o formulário está em modo "nova reserva"
+  setField("resource", resource);
+  setField("date", date);
+  setField("startTime", slot.start);
+  setField("endTime", slot.end);
+  form.scrollIntoView({ behavior: "smooth" });
+}
+
+function drawSlots(slots: TimeSlot[], resource: ResourceType, date: string): void {
+  availabilityList.replaceChildren();
+
+  if (slots.length === 0) {
+    const empty = document.createElement("li");
+    empty.className = "empty";
+    empty.textContent = "Nenhum horário disponível nesta data.";
+    availabilityList.append(empty);
+    return;
+  }
+
+  for (const slot of slots) {
+    const item = document.createElement("li");
+    item.className = "slot";
+    item.tabIndex = 0;
+    item.textContent = `${slot.start} às ${slot.end}`;
+
+    item.addEventListener("click", () => useSlot(resource, date, slot));
+    item.addEventListener("keydown", (event: KeyboardEvent) => {
+      if (event.key === "Enter") useSlot(resource, date, slot);
+    });
+
+    availabilityList.append(item);
   }
 }
+
+// Refaz a última consulta (se houver), para refletir criações, edições etc.
+async function refreshAvailability(): Promise<void> {
+  if (lastAvailability === null) return;
+
+  const { resource, date } = lastAvailability;
+  const slots = await service.getAvailableSlots(resource, date);
+  drawSlots(slots, resource, date);
+}
+
+// ---------- Modo de edição ----------
 
 function startEditing(r: Reservation): void {
   editingId = r.id;
@@ -249,6 +331,56 @@ editButton.addEventListener("click", () => {
   if (selected !== undefined) startEditing(selected);
 });
 
+// Abre o formulário de reagendamento já preenchido com a data e o horário atuais
+rescheduleButton.addEventListener("click", () => {
+  const selected = allReservations.find((r) => r.id === selectedId);
+  if (selected === undefined) return;
+
+  reschedulingId = selected.id;
+  setField("date", selected.date, rescheduleForm);
+  setField("startTime", selected.startTime, rescheduleForm);
+  setField("endTime", selected.endTime, rescheduleForm);
+  message.textContent = "";
+  updatePanel();
+});
+
+cancelRescheduleButton.addEventListener("click", () => {
+  reschedulingId = null;
+  updatePanel();
+});
+
+rescheduleForm.addEventListener("submit", async (event: SubmitEvent) => {
+  event.preventDefault();
+
+  if (reschedulingId === null) return; // narrowing: depois disso é number
+  const id = reschedulingId;
+
+  const data = new FormData(rescheduleForm);
+  rescheduleSubmit.disabled = true;
+
+  try {
+    const result = await service.reschedule(id, {
+      date: String(data.get("date")),
+      startTime: String(data.get("startTime")),
+      endTime: String(data.get("endTime")),
+    });
+
+    if (!result.ok) {
+      showMessage(result.error, "error");
+      return;
+    }
+
+    showMessage("Reserva reagendada com sucesso!", "success");
+    reschedulingId = null;
+    if (editingId === id) stopEditing(); // o formulário principal ficaria desatualizado
+    await loadReservations();
+  } catch (error) {
+    showMessage(getErrorMessage(error), "error");
+  } finally {
+    rescheduleSubmit.disabled = false;
+  }
+});
+
 cancelSelectedButton.addEventListener("click", () => {
   if (selectedId !== null) void handleCancel(selectedId);
 });
@@ -260,6 +392,29 @@ deleteSelectedButton.addEventListener("click", () => {
 cancelEditButton.addEventListener("click", () => {
   stopEditing();
   message.textContent = "";
+});
+
+availabilityForm.addEventListener("submit", async (event: SubmitEvent) => {
+  event.preventDefault();
+
+  const resource = availabilityResource.value;
+  const date = availabilityDate.value;
+
+  if (!isResourceType(resource)) {
+    showMessage("Recurso inválido.", "error");
+    return;
+  }
+  if (date === "") {
+    showMessage("Informe a data para consultar os horários.", "error");
+    return;
+  }
+
+  try {
+    lastAvailability = { resource, date };
+    await refreshAvailability();
+  } catch (error) {
+    showMessage(getErrorMessage(error), "error");
+  }
 });
 
 form.addEventListener("submit", async (event: SubmitEvent) => {

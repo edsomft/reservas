@@ -25,6 +25,15 @@ export type CreateResult =
   | { ok: true; reservation: Reservation }
   | { ok: false; error: string };
 
+// Só os campos que mudam num reagendamento
+export type RescheduleData = Pick<Reservation, "date" | "startTime" | "endTime">;
+
+// Uma janela de tempo livre
+export interface TimeSlot {
+  start: string; // "08:00"
+  end: string; // "10:00"
+}
+
 // Tipo genérico: o valor do filtro é um valor real OU "todos" (sem filtrar)
 export type FilterValue<T> = T | "todos";
 
