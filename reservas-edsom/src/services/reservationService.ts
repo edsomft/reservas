@@ -27,10 +27,18 @@ export function toTime(totalMinutes: number): string {
   return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
 }
 
-// Função pura (não depende de servidor nem de DOM): recebe as reservas existentes
-// e diz se o candidato conflita com alguma. Dois intervalos se sobrepõem quando
-// A começa antes de B terminar E A termina depois de B começar.
-// "ignoreId" será usado na edição/reagendamento: a reserva não conflita consigo mesma.
+export function isWithinBusinessHours(
+  startTime: string,
+  endTime: string,
+  opening: string = OPENING_TIME,
+  closing: string = CLOSING_TIME
+): boolean {
+  return (
+    toMinutes(startTime) >= toMinutes(opening) &&
+    toMinutes(endTime) <= toMinutes(closing)
+  );
+}
+
 export function hasConflict(
   candidate: NewReservation,
   existing: Reservation[],
@@ -121,6 +129,9 @@ export class ReservationService {
     }
     if (toMinutes(data.endTime) <= toMinutes(data.startTime)) {
       return "O horário final deve ser depois do inicial.";
+    }
+    if (!isWithinBusinessHours(data.startTime, data.endTime)) {
+      return `Fora do horário de funcionamento (${OPENING_TIME} às ${CLOSING_TIME}).`;
     }
 
     const sameDay = await this.api.getAll({
